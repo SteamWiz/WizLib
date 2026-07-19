@@ -1,0 +1,9 @@
+dyngle:
+
+  imports:
+    - dyngleconf/python.dyngle.yml
+    - dyngleconf/git.dyngle.yml
+    - ~/.dyngle.yml
+
+  expressions:
+    coverage-target: '96'

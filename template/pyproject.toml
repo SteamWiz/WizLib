@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "template"
+description = "Template"
+authors = ["Steampunk Wizard <template@steamwiz.io>"]
+license = "MIT"
+readme = "PACKAGE.md"
+version = "0.0.0"
+
+[tool.poetry.dependencies]
+python = "~3.11"
+wizlib = "^3.3"
+
+[tool.poetry.group.dev.dependencies]
+pycodestyle = "^2.11.0"
+autopep8 = "^2.0.4"
+coverage = "^7.3.0"

@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      release-level:
+        description: "Force a release at this level (patch, minor, major), or leave empty for commit-driven"
+        type: choice
+        options:
+          - ''
+          - patch
+          - minor
+          - major
+        default: ''
+
+permissions:
+  contents: write
+  checks: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  pipeline:
+    uses: steamwiz/actions/.github/workflows/python-pipeline.yml@v1
+    with:
+      python-version: '3.13'
+      coverage-min: 96
+      do-style: false
+      source-dir: wizlib
+      release-level: ${{ inputs.release-level }}
+    secrets:
+      APP_ID: ${{ secrets.APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}

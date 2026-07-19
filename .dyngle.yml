@@ -1,0 +1,68 @@
+# Dyngle tools for developers (think of it like Make)
+
+dyngle:
+
+  # Repo-specific settings
+
+  constants:
+    coverage-target: 96
+    python-version: '3.11'
+
+
+  # Everythin from here down boilerplate
+
+  imports:
+    - ~/.dyngle.yml
+
+  expressions:
+    source-dir: PurePath(getcwd()).name
+
+  operations:
+
+    # Create an entirely new venv
+    init:
+      - rm -rf .venv
+      - python{{python-version}} -m venv .venv
+      - .venv/bin/pip install --upgrade pip poetry
+
+
+    # Install dependencies into the venv. Note we don't install the project
+    # itself as we're in development and can call our code directly.
+
+    dependencies:
+      - .venv/bin/poetry install --no-root
+
+
+    # Run unit tests and report coverage. Note that the --fail-under amount should
+    # match the coverage-min amount in .gitlab-ci.yml.
+
+    test:
+      steps:
+        - .venv/bin/python -m coverage run --source={{source-dir}} -m unittest
+        - .venv/bin/python -m coverage report -m --fail-under {{coverage-target}}
+
+
+    # Run tests using pytest (handles both unittest and pytest-style tests)
+    # with unified coverage reporting
+
+    pytest:
+      - .venv/bin/python -m coverage run --source={{source-dir}} -m pytest test/ -s
+      - .venv/bin/python -m coverage report -m --fail-under {{coverage-target}}
+
+
+    # Check code style - use AutoPEP8 to clean up some first
+
+    style:
+      - .venv/bin/autopep8 -ir {{source-dir}}
+      - .venv/bin/pycodestyle {{source-dir}}
+      - .venv/bin/autopep8 -ir test
+      - .venv/bin/pycodestyle test
+
+
+    # Perform a local test build. Final published builds come from CI but a local
+    # build is useful for distribution level tests. The build will come out as
+    # a rewrite of the version number as it's only bumped in CI.
+
+    build:
+      - rm -rf dist
+      - .venv/bin/poetry build
