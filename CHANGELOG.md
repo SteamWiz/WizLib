@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v4.0.3 (2026-07-20)
+
+### Continuous Integration
+
+- Ignore push to main to prevent concurrency cancellation on PSR commits
+  ([`90c891f`](https://github.com/SteamWiz/WizLib/commit/90c891f163ae691fb4f9c5949816b4c884407d38))
+
+
 ## v4.0.2 (2026-07-20)
 
 
