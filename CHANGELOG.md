@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v4.0.7 (2026-07-20)
+
+### Continuous Integration
+
+- Move build job to caller workflow to fix GitHub Actions reusable workflow if: bug
+  ([`f35d1a5`](https://github.com/SteamWiz/WizLib/commit/f35d1a5d3b9a871c125e39ca1f6f715e20b28632))
+
+
 ## v4.0.6 (2026-07-20)
 
 
