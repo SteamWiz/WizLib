@@ -33,3 +33,8 @@ jobs:
     secrets:
       APP_ID: ${{ secrets.APP_ID }}
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+
+  publish:
+    needs: pipeline
+    if: needs.pipeline.outputs.released == 'true'
+    uses: ./.github/workflows/publish.yml

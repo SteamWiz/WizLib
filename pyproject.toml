@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "wizlib"
-version = "1.0.1"
+version = "4.0.0"
 description = "Build configurable CLI tools easily in Python (a framework)"
 authors = ["Steampunk Wizard <wizlib@steamwiz.io>"]
 license = "MIT"
@@ -26,3 +26,14 @@ build-backend = "poetry.core.masonry.api"
 [tool.semantic_release]
 version_toml = ["pyproject.toml:tool.poetry.version"]
 tag_format = "v{version}"
+build_command = false
+
+[tool.semantic_release.branches.main]
+match = "main"
+prerelease = false
+
+[tool.semantic_release.remote.token]
+env = "GH_TOKEN"
+
+[tool.semantic_release.publish]
+upload_to_vcs_release = false

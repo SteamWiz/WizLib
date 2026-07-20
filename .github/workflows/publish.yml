@@ -1,0 +1,28 @@
+# Project-side PyPI publish workflow.
+# Called by ci.yml when the pipeline job reports released == 'true'.
+# The OIDC sub claim encodes THIS repo (steamwiz/wizlib), not steamwiz/actions,
+# which is why this step must live here and not in the shared library.
+# See steamwiz/actions SPEC.md §7.
+
+name: Publish to PyPI
+
+on:
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  pypi-publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write   # mandatory for OIDC trusted publisher
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
