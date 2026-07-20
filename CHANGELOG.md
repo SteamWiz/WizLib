@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v4.0.1 (2026-07-20)
+
+### Bug Fixes
+
+- Grant id-token: write at workflow level for OIDC publish
+  ([`437d122`](https://github.com/SteamWiz/WizLib/commit/437d122ee07fa14fe723489641671230a88e601d))
+
+- Set build_command to empty string (PSR v10 requires string not bool)
+  ([`2bd4527`](https://github.com/SteamWiz/WizLib/commit/2bd452753e08a44ae3f9d4c09fe7dee038e9c8c1))
+
+### Continuous Integration
+
+- Add publish workflow and align version + PSR config for v4.0.0
+  ([`0909caf`](https://github.com/SteamWiz/WizLib/commit/0909cafbc059ab0392b978f9a3b13bddb7aeea26))
+
+
 ## v1.0.1 (2026-07-19)
 
 ### Bug Fixes
