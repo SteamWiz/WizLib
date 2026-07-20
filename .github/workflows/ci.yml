@@ -37,7 +37,39 @@ jobs:
       APP_ID: ${{ secrets.APP_ID }}
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
 
-  publish:
+  build:
+    name: Build
     needs: pipeline
+    if: needs.pipeline.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.pipeline.outputs.tag }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Poetry
+        run: pip install "poetry==2.*"
+
+      - name: Install project dependencies
+        run: poetry install --no-root
+
+      - name: Build distribution
+        run: poetry build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 30
+
+  publish:
+    needs: [pipeline, build]
     if: needs.pipeline.outputs.released == 'true'
     uses: ./.github/workflows/publish.yml
