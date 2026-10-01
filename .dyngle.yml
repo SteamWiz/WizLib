@@ -34,7 +34,7 @@ dyngle:
 
 
     # Run unit tests and report coverage. Note that the --fail-under amount should
-    # match the coverage-min amount in .gitlab-ci.yml.
+    # match the coverage-min amount in .github/workflows/ci.yml.
 
     test:
       steps:
