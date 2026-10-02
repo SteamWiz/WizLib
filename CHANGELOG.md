@@ -9,7 +9,7 @@
 - Inline publish steps into ci.yml (PyPI reusable workflow OIDC not supported)
   ([`8adffc5`](https://github.com/SteamWiz/WizLib/commit/8adffc5b603dd376a542aebbce86e12d4e276337))
 
-- Remove unused publish.yml and fix stale .gitlab-ci.yml reference
+- Remove unused publish.yml and fix stale CI config reference
   ([`b51fc01`](https://github.com/SteamWiz/WizLib/commit/b51fc01c682b918759e8fc8553b1966e563a0989))
 
 
