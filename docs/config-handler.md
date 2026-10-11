@@ -71,6 +71,35 @@ username = self.app.config.get('myapp-database-username')   # "dbuser"
 logging = self.app.config.get('myapp-features-enable_logging')  # True
 ```
 
+## Explicit Key Paths
+
+Because a single argument to `get()` is split on hyphens, it cannot reach YAML keys that themselves contain hyphens. To reach such keys, pass each key as a separate argument. When `get()` is called with more than one argument, each argument is treated as a literal YAML key and is never split.
+
+```yaml
+filez4eva:
+  classify:
+    auto-threshold: 0.8
+  tool-use:
+    limit: 10
+```
+
+```python
+threshold = self.app.config.get('filez4eva', 'classify', 'auto-threshold')  # 0.8
+limit = self.app.config.get('filez4eva', 'tool-use', 'limit')                # 10
+```
+
+A single argument keeps the hyphen-splitting behaviour, so `get('filez4eva-classify-auto-threshold')` looks for `filez4eva: classify: auto: threshold:` and does not find the value above.
+
+The environment variable override for an explicit path is formed by joining the keys with underscores, replacing hyphens with underscores, and upper-casing. The path above is overridden by:
+
+```bash
+export FILEZ4EVA_CLASSIFY_AUTO_THRESHOLD=0.9
+```
+
+Note that different paths can map to the same environment variable name. For example, `get('a', 'b-c')`, `get('a-b', 'c')` and `get('a-b-c')` are all overridden by `A_B_C`.
+
+As with single-argument lookups, string results are evaluated for `$(...)` expressions, missing values return `None`, and values are cached against the full path (the tuple of keys), so an explicit path never collides with a single-string lookup in the cache.
+
 ## Dynamic Values with Command Execution
 
 The YAML configuration file can include dynamic values by executing OS commands using the `$(command)` syntax. This is particularly useful for retrieving secrets from password managers:
@@ -122,26 +151,26 @@ config_dict = {
     }
 }
 
-config = ConfigHandler(yaml=config_dict)
+config = ConfigHandler(data=config_dict)
 
 # Access values using the same hyphen-separated keys
 host = config.get('myapp-host')                    # "api.example.com"
 username = config.get('myapp-database-username')   # "dbuser"
 ```
 
-Note that environment variables still take precedence over values provided via the `yaml` parameter.
+Note that environment variables still take precedence over values provided via the `data` parameter.
 
 ## Testing with Fake ConfigHandler
 
 For testing, you have two options:
 
-### Option 1: Use the `yaml` parameter
+### Option 1: Use the `data` parameter
 ```python
 from wizlib.config_handler import ConfigHandler
 
 # Create a ConfigHandler with test configuration
 config_dict = {'myapp': {'host': 'test.example.com', 'token': 'test-token'}}
-myapp.config = ConfigHandler(yaml=config_dict)
+myapp.config = ConfigHandler(data=config_dict)
 
 # Use in tests
 assert myapp.config.get('myapp-host') == 'test.example.com'
@@ -159,6 +188,13 @@ myapp.config = ConfigHandler.fake(
 
 # Use in tests
 assert myapp.config.get('myapp-host') == 'test.example.com'
+```
+
+Faked values are also found by explicit key paths. A keyword argument's underscores become hyphens, and an explicit path falls back to its keys joined with hyphens:
+
+```python
+myapp.config = ConfigHandler.fake(filez4eva_classify_auto_threshold='0.5')
+assert myapp.config.get('filez4eva', 'classify', 'auto-threshold') == '0.5'
 ```
 
 Note that the `ConfigHandler.fake` approach only works with string values.

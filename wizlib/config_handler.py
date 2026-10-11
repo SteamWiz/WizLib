@@ -44,6 +44,7 @@ class ConfigHandler(Handler):
         self.file = file
         self.injected_data = data
         self.cache = {}
+        self.fake_keys = set()
 
     @cached_property
     def data(self):
@@ -76,32 +77,60 @@ class ConfigHandler(Handler):
         if (envvar := name.upper().replace('-', '_')) in os.environ:
             return os.environ[envvar]
 
-    def get(self, data_path: str):
+    def get(self, *keys: str):
         """Return the value for the requested config entry. If the value is a
         string, evaluate it for shell-type expressions using $(...) syntax. Can
         also return a dict or array. Note that the value returned is cached
-        against the data_path, so future calls may not address nested paths.
+        against the requested path, so future calls may not address nested
+        paths.
 
-        data_path: Hyphen-separated path through the yaml/dict hierarchy."""
+        With a single argument, it is a hyphen-separated path through the
+        yaml/dict hierarchy, e.g. get('myapp-host').
+
+        With more than one argument, each argument is a literal key (which may
+        itself contain hyphens), e.g. get('myapp', 'classify',
+        'auto-threshold'). The environment override is the keys joined with
+        underscores, with hyphens replaced by underscores, upper-cased, e.g.
+        MYAPP_CLASSIFY_AUTO_THRESHOLD."""
+
+        if not keys:
+            raise TypeError('ConfigHandler.get() requires at least one key')
+
+        if len(keys) == 1:
+            data_path = keys[0]
+            return self._lookup(data_path, data_path, data_path.split('-'))
+
+        keys = tuple(keys)
+        # Support ConfigHandler.fake(), which stores hyphen-joined strings.
+        # Only faked entries are consulted, so values cached by single-string
+        # lookups never collide with explicit paths.
+        if keys not in self.cache and \
+                (joined := '-'.join(keys)) in self.fake_keys:
+            return self.cache[joined]
+        return self._lookup(keys, '_'.join(keys), keys)
+
+    def _lookup(self, cache_key, env_name: str, path):
+        """Find a value by cache, then environment, then data, caching the
+        result against cache_key. Returns None (uncached) if missing."""
 
         # If we already found the value, return it
-        if data_path in self.cache:
-            return self.cache[data_path]
+        if cache_key in self.cache:
+            return self.cache[cache_key]
 
         # Environment variables take precedence
-        if (result := self.env(data_path)):
-            self.cache[data_path] = result
+        if (result := self.env(env_name)):
+            self.cache[cache_key] = result
             return result
 
         # Otherwise look at the YAML or injected data
         if (data := self.data):
-            for key in data_path.split('-'):
+            for key in path:
                 if not isinstance(data, dict) or key not in data:
                     return None
                 data = data[key]
             if isinstance(data, str):
                 data = evaluate_string(data)
-            self.cache[data_path] = data
+            self.cache[cache_key] = data
             return data
 
     @classmethod
@@ -109,6 +138,7 @@ class ConfigHandler(Handler):
         """Return a fake ConfigHandler with forced values, for testing"""
         self = cls()
         self.cache = {k.replace('_', '-'): vals[k] for k in vals}
+        self.fake_keys = set(self.cache)
         return self
 
 
