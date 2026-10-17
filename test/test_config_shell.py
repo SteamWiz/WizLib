@@ -74,12 +74,56 @@ class ConfigSecretTest(TestCase):
         self.assertIn('item not found', str(ctx.exception))
 
     @patch('wizlib.config_handler.subprocess.run')
+    def test_op_failure_names_key(self, run):
+        run.return_value = CompletedProcess(
+            [], 1, stdout='', stderr='[ERROR] not signed in\n')
+        c = ConfigHandler(data={'myapp': {'token': 'op://V/i/f'}})
+        with self.assertRaises(ConfigHandlerError) as ctx:
+            c.get('myapp-token')
+        message = str(ctx.exception)
+        self.assertIn("'myapp-token'", message)
+        self.assertIn('op://V/i/f', message)
+        self.assertIn('not signed in', message)
+
+    @patch('wizlib.config_handler.subprocess.run')
+    def test_op_failure_names_explicit_path(self, run):
+        run.return_value = CompletedProcess(
+            [], 1, stdout='', stderr='[ERROR] not signed in\n')
+        c = ConfigHandler(data={'myapp': {'api-token': 'op://V/i/f'}})
+        with self.assertRaises(ConfigHandlerError) as ctx:
+            c.get('myapp', 'api-token')
+        self.assertIn("'myapp', 'api-token'", str(ctx.exception))
+
+    @patch('wizlib.config_handler.subprocess.run')
     def test_op_missing(self, run):
         run.side_effect = FileNotFoundError('op')
         c = ConfigHandler(data={'t': 'op://V/i/f'})
         with self.assertRaises(ConfigHandlerError) as ctx:
             c.get('t')
-        self.assertIn('op', str(ctx.exception))
+        message = str(ctx.exception)
+        self.assertIn('1Password CLI', message)
+        self.assertIn('not found', message)
+        self.assertIn("'t'", message)
+
+    @patch('wizlib.config_handler.subprocess.run')
+    def test_non_reference_string_stripped(self, run):
+        c = ConfigHandler(data={'a': 'hello\n', 'b': '  padded  '})
+        self.assertEqual('hello', c.get('a'))
+        self.assertEqual('padded', c.get('b'))
+        run.assert_not_called()
+
+    def test_non_reference_yaml_block_stripped(self):
+        with NamedTemporaryFile(mode='w+') as cfile:
+            cfile.write('a: |\n  hello\n')
+            cfile.seek(0)
+            c = ConfigHandler(file=cfile.name)
+            self.assertEqual('hello', c.get('a'))
+
+    @patch('wizlib.config_handler.subprocess.run')
+    def test_nested_reference_not_resolved(self, run):
+        c = ConfigHandler(data={'s': {'token': 'op://V/i/f'}})
+        self.assertEqual({'token': 'op://V/i/f'}, c.get('s'))
+        run.assert_not_called()
 
     @patch('wizlib.config_handler.subprocess.run')
     def test_non_op_string_unchanged(self, run):

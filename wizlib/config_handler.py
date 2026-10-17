@@ -97,7 +97,8 @@ class ConfigHandler(Handler):
 
         if len(keys) == 1:
             data_path = keys[0]
-            return self._lookup(data_path, data_path, data_path.split('-'))
+            return self._lookup(data_path, data_path, data_path.split('-'),
+                                repr(data_path))
 
         keys = tuple(keys)
         # Support ConfigHandler.fake(), which stores hyphen-joined strings.
@@ -106,11 +107,13 @@ class ConfigHandler(Handler):
         if keys not in self.cache and \
                 (joined := '-'.join(keys)) in self.fake_keys:
             return self.cache[joined]
-        return self._lookup(keys, '_'.join(keys), keys)
+        return self._lookup(keys, '_'.join(keys), keys,
+                            ', '.join(repr(k) for k in keys))
 
-    def _lookup(self, cache_key, env_name: str, path):
+    def _lookup(self, cache_key, env_name: str, path, name: str):
         """Find a value by cache, then environment, then data, caching the
-        result against cache_key. Returns None (uncached) if missing."""
+        result against cache_key. Returns None (uncached) if missing. The name
+        identifies the config key in error messages."""
 
         # If we already found the value, return it
         if cache_key in self.cache:
@@ -128,7 +131,7 @@ class ConfigHandler(Handler):
                     return None
                 data = data[key]
             if isinstance(data, str):
-                data = resolve_secret(data)
+                data = resolve_secret(data, name)
             self.cache[cache_key] = data
             return data
 
@@ -143,17 +146,17 @@ class ConfigHandler(Handler):
 
 def resolve_op(ref: str) -> str:
     """Resolve a 1Password secret reference (op://...) using the 1Password
-    CLI. Raises ConfigHandlerError if the op CLI is missing or fails."""
+    CLI. Raises ConfigHandlerError with the reason if the op CLI is missing or
+    fails."""
     try:
         result = subprocess.run(
             ['op', 'read', ref], capture_output=True, text=True)
     except FileNotFoundError as error:
-        raise ConfigHandlerError(
-            f"Unable to resolve {ref}: 1Password CLI (op) not found") \
-            from error
+        raise ConfigHandlerError("1Password CLI (op) not found") from error
     if result.returncode != 0:
         raise ConfigHandlerError(
-            f"Unable to resolve {ref}: {result.stderr.strip()}")
+            result.stderr.strip() or
+            f"op exited with status {result.returncode}")
     return result.stdout.rstrip('\r\n')
 
 
@@ -165,12 +168,19 @@ RESOLVERS = {
 }
 
 
-def resolve_secret(value: str) -> str:
-    """If the value is exactly a reference using a known scheme (such as
-    op://vault/item/field), resolve it. Otherwise return the value
-    unchanged."""
-    ref = value.strip()
-    scheme, sep, _ = ref.partition('://')
+def resolve_secret(value: str, name: str = None) -> str:
+    """Strip surrounding whitespace from the value (as config strings always
+    have been). If it is then exactly a reference using a known scheme (such
+    as op://vault/item/field), resolve it; otherwise return the stripped
+    value. On failure, raise ConfigHandlerError naming the config key (if
+    given), the reference, and the reason."""
+    text = value.strip()
+    scheme, sep, _ = text.partition('://')
     if sep and scheme in RESOLVERS:
-        return RESOLVERS[scheme](ref)
-    return value
+        try:
+            return RESOLVERS[scheme](text)
+        except ConfigHandlerError as error:
+            where = f"config key {name} ({text})" if name else text
+            raise ConfigHandlerError(
+                f"Unable to resolve {where}: {error}") from error
+    return text
