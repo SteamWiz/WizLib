@@ -141,16 +141,9 @@ class ConfigHandler(Handler):
         return self
 
 
-OP_PREFIX = 'op://'
-
-
-def resolve_secret(value: str) -> str:
-    """If the value is exactly a 1Password secret reference (op://...), resolve
-    it using the 1Password CLI. Otherwise return the value unchanged. Raises
-    ConfigHandlerError if the op CLI is missing or fails."""
-    ref = value.strip()
-    if not ref.startswith(OP_PREFIX):
-        return value
+def resolve_op(ref: str) -> str:
+    """Resolve a 1Password secret reference (op://...) using the 1Password
+    CLI. Raises ConfigHandlerError if the op CLI is missing or fails."""
     try:
         result = subprocess.run(
             ['op', 'read', ref], capture_output=True, text=True)
@@ -162,3 +155,22 @@ def resolve_secret(value: str) -> str:
         raise ConfigHandlerError(
             f"Unable to resolve {ref}: {result.stderr.strip()}")
     return result.stdout.rstrip('\r\n')
+
+
+# Value lookups, keyed by URI scheme. A config string value that is exactly
+# '<scheme>://...' for a scheme listed here is passed to the matching resolver.
+# To add a new lookup mechanism, add a scheme and resolver here.
+RESOLVERS = {
+    'op': resolve_op,
+}
+
+
+def resolve_secret(value: str) -> str:
+    """If the value is exactly a reference using a known scheme (such as
+    op://vault/item/field), resolve it. Otherwise return the value
+    unchanged."""
+    ref = value.strip()
+    scheme, sep, _ = ref.partition('://')
+    if sep and scheme in RESOLVERS:
+        return RESOLVERS[scheme](ref)
+    return value

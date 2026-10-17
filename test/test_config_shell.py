@@ -83,9 +83,11 @@ class ConfigSecretTest(TestCase):
 
     @patch('wizlib.config_handler.subprocess.run')
     def test_non_op_string_unchanged(self, run):
-        c = ConfigHandler(data={'t': 'see op://V/i/f', 'u': '$(echo hi)'})
+        c = ConfigHandler(data={'t': 'see op://V/i/f', 'u': '$(echo hi)',
+                                'v': 'https://example.com/x'})
         self.assertEqual('see op://V/i/f', c.get('t'))
         self.assertEqual('$(echo hi)', c.get('u'))
+        self.assertEqual('https://example.com/x', c.get('v'))
         run.assert_not_called()
 
     @patch.dict(os.environ, {'T': 'op://V/i/f'})

@@ -120,6 +120,8 @@ When the value is requested, WizLib runs `op read` with the reference and return
 - If `op` is not installed or fails (for example, the item doesn't exist or you're not signed in), `get()` raises `ConfigHandlerError` with the error from `op`.
 - Values from environment variables are used as-is and are not resolved.
 
+The `op://` prefix is the whole mechanism: a value is treated as a reference only when its URI scheme matches a known lookup. `op` is currently the only one, so other URLs such as `https://example.com` are returned as plain strings. New lookup mechanisms can be added later as additional schemes.
+
 ## Example Usage in a Command
 
 Here's how you might use the ConfigHandler in a command:
