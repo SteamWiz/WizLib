@@ -2,6 +2,63 @@
 
 <!-- version list -->
 
+## v4.1.0 (2026-10-17)
+
+### Bug Fixes
+
+- Name config key in secret errors, keep stripping plain values, add migration docs
+  ([#9](https://github.com/SteamWiz/WizLib/pull/9),
+  [`0d1b603`](https://github.com/SteamWiz/WizLib/commit/0d1b603186d0cc066c028965f6a2680d1fb142d1))
+
+- Return None from ConfigHandler.get when a path runs through a non-dict value
+  ([#4](https://github.com/SteamWiz/WizLib/pull/4),
+  [`fac5068`](https://github.com/SteamWiz/WizLib/commit/fac5068511d48f5150e73e2e20a47664ab89e49f))
+
+### Chores
+
+- MIT license, copyright 2026 Francis Potter
+  ([`cc6c98a`](https://github.com/SteamWiz/WizLib/commit/cc6c98a756b47de3a8a48b24fa9661c15e0da801))
+
+- Use shared Dyngle operations from SteamWiz/Conf submodule
+  ([`8832b89`](https://github.com/SteamWiz/WizLib/commit/8832b89427fb17fba493649d37bcd49b62dfc65f))
+
+### Continuous Integration
+
+- Name the pull-request workflow 'PR Checks'
+  ([`dfcbf1a`](https://github.com/SteamWiz/WizLib/commit/dfcbf1a1dd83ba64490cd9aa2a9961904e48e366))
+
+- Reference steamwiz/actions@v1
+  ([`af65357`](https://github.com/SteamWiz/WizLib/commit/af653570e093ead9532ce6c9cd921fd118188bb2))
+
+- Split PR checks from release; read-only PR token, one run per PR
+  ([`80a508f`](https://github.com/SteamWiz/WizLib/commit/80a508fd8be38c02e326683e6b4d133eb4221596))
+
+### Documentation
+
+- Remove GitLab reference from changelog
+  ([`53257b5`](https://github.com/SteamWiz/WizLib/commit/53257b5f8ae92b3d66d1f57813b1905da3c29c8f))
+
+### Features
+
+- Replace $(...) config substitution with 1Password secret references
+  ([#9](https://github.com/SteamWiz/WizLib/pull/9),
+  [`c777544`](https://github.com/SteamWiz/WizLib/commit/c77754492a9b28a5b7d4a40a360365f16323c0ff))
+
+- Support explicit key paths in ConfigHandler.get so YAML keys can contain hyphens
+  ([#5](https://github.com/SteamWiz/WizLib/pull/5),
+  [`2cc6023`](https://github.com/SteamWiz/WizLib/commit/2cc602330dd13c81a8f179719dfd1ed0b619bea5))
+
+### Refactoring
+
+- Dispatch config value references by URI scheme
+  ([`f299609`](https://github.com/SteamWiz/WizLib/commit/f299609c49690e26202a6bf1eea09a76c07e477c))
+
+### Breaking Changes
+
+- $(...) shell substitution in config values has been removed. Replace `$(op read "op://...")` with
+  the bare `op://...` reference.
+
+
 ## v4.0.8 (2026-10-01)
 
 ### Continuous Integration
