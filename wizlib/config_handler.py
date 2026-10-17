@@ -3,10 +3,7 @@ from functools import cached_property
 from pathlib import Path
 import os
 from dataclasses import dataclass
-import re
-import shlex
 import subprocess
-from unittest.mock import patch
 
 import yaml
 
@@ -78,9 +75,11 @@ class ConfigHandler(Handler):
             return os.environ[envvar]
 
     def get(self, *keys: str):
-        """Return the value for the requested config entry. If the value is a
-        string, evaluate it for shell-type expressions using $(...) syntax. Can
-        also return a dict or array. Note that the value returned is cached
+        """Return the value for the requested config entry. If the value from
+        the YAML file (or injected data) is a string that is exactly a
+        1Password secret reference (op://vault/item/field), it is resolved
+        using the 1Password CLI (`op read`). Other strings are returned as-is.
+        Can also return a dict or array. Note that the value returned is cached
         against the requested path, so future calls may not address nested
         paths.
 
@@ -129,7 +128,7 @@ class ConfigHandler(Handler):
                     return None
                 data = data[key]
             if isinstance(data, str):
-                data = evaluate_string(data)
+                data = resolve_secret(data)
             self.cache[cache_key] = data
             return data
 
@@ -142,15 +141,24 @@ class ConfigHandler(Handler):
         return self
 
 
-def os_process(match):
-    """Run a subprocess in shell form"""
-    command_string = match.group(1).strip()
-    command = shlex.split(command_string)
-    result = subprocess.run(command, capture_output=True)
-    return result.stdout.decode().strip()
+OP_PREFIX = 'op://'
 
 
-def evaluate_string(yaml: str) -> str:
-    """Evaluate shell commands in string values"""
-    text = yaml.strip()
-    return re.sub(r'\$\((.*?)\)', os_process, text)
+def resolve_secret(value: str) -> str:
+    """If the value is exactly a 1Password secret reference (op://...), resolve
+    it using the 1Password CLI. Otherwise return the value unchanged. Raises
+    ConfigHandlerError if the op CLI is missing or fails."""
+    ref = value.strip()
+    if not ref.startswith(OP_PREFIX):
+        return value
+    try:
+        result = subprocess.run(
+            ['op', 'read', ref], capture_output=True, text=True)
+    except FileNotFoundError as error:
+        raise ConfigHandlerError(
+            f"Unable to resolve {ref}: 1Password CLI (op) not found") \
+            from error
+    if result.returncode != 0:
+        raise ConfigHandlerError(
+            f"Unable to resolve {ref}: {result.stderr.strip()}")
+    return result.stdout.rstrip('\r\n')

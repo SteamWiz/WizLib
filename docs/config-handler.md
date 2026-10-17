@@ -98,22 +98,27 @@ export FILEZ4EVA_CLASSIFY_AUTO_THRESHOLD=0.9
 
 Note that different paths can map to the same environment variable name. For example, `get('a', 'b-c')`, `get('a-b', 'c')` and `get('a-b-c')` are all overridden by `A_B_C`.
 
-As with single-argument lookups, string results are evaluated for `$(...)` expressions, missing values return `None`, and values are cached against the full path (the tuple of keys), so an explicit path never collides with a single-string lookup in the cache.
+As with single-argument lookups, 1Password secret references are resolved (see below), missing values return `None`, and values are cached against the full path (the tuple of keys), so an explicit path never collides with a single-string lookup in the cache.
 
-## Dynamic Values with Command Execution
+## 1Password Secret References
 
-The YAML configuration file can include dynamic values by executing OS commands using the `$(command)` syntax. This is particularly useful for retrieving secrets from password managers:
+A string value in the YAML configuration file (or injected data) can be a [1Password secret reference](https://developer.1password.com/docs/cli/secret-references/), which you can copy from the 1Password app:
 
 ```yaml
 myapp:
   # Static value
   host: api.example.com
-  
-  # Dynamic value from command execution
-  token: $(op read "op://Private/example/api-key")
+
+  # Resolved from 1Password
+  token: op://Private/example/api-key
 ```
 
-When the configuration value is requested, the command inside `$()` will be executed and its output will be used as the value.
+When the value is requested, WizLib runs `op read` with the reference and returns the secret (without the trailing newline). The value is cached, so `op` runs at most once per key.
+
+- Only a value that is exactly a secret reference (starting with `op://`, ignoring surrounding whitespace) is resolved. All other strings are returned unchanged; there is no shell or command substitution.
+- Resolution requires the [1Password CLI](https://developer.1password.com/docs/cli/) (`op`) to be installed and signed in.
+- If `op` is not installed or fails (for example, the item doesn't exist or you're not signed in), `get()` raises `ConfigHandlerError` with the error from `op`.
+- Values from environment variables are used as-is and are not resolved.
 
 ## Example Usage in a Command
 

@@ -1,4 +1,5 @@
 import os
+from subprocess import CompletedProcess
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -82,9 +83,18 @@ class TestConfigHandlerExplicitPath(TestCase):
             5, c.get('filez4eva', 'classify', 'auto-threshold'))
         self.assertNotIn(('filez4eva', 'classify', 'auto-threshold'), c.cache)
 
-    def test_evaluate_string(self):
+    def test_shell_syntax_not_evaluated(self):
         c = ConfigHandler(data={'a': {'b-c': '$(echo hello)'}})
+        self.assertEqual('$(echo hello)', c.get('a', 'b-c'))
+
+    @patch('wizlib.config_handler.subprocess.run')
+    def test_op_reference_resolved(self, run):
+        run.return_value = CompletedProcess([], 0, stdout='hello\n',
+                                            stderr='')
+        c = ConfigHandler(data={'a': {'b-c': 'op://V/i/f'}})
         self.assertEqual('hello', c.get('a', 'b-c'))
+        run.assert_called_once_with(['op', 'read', 'op://V/i/f'],
+                                    capture_output=True, text=True)
 
     def test_missing_returns_none_uncached(self):
         c = ConfigHandler(data=DATA)
