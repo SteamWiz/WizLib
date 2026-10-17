@@ -3,10 +3,7 @@ from functools import cached_property
 from pathlib import Path
 import os
 from dataclasses import dataclass
-import re
-import shlex
 import subprocess
-from unittest.mock import patch
 
 import yaml
 
@@ -78,9 +75,11 @@ class ConfigHandler(Handler):
             return os.environ[envvar]
 
     def get(self, *keys: str):
-        """Return the value for the requested config entry. If the value is a
-        string, evaluate it for shell-type expressions using $(...) syntax. Can
-        also return a dict or array. Note that the value returned is cached
+        """Return the value for the requested config entry. If the value from
+        the YAML file (or injected data) is a string that is exactly a
+        1Password secret reference (op://vault/item/field), it is resolved
+        using the 1Password CLI (`op read`). Other strings are returned as-is.
+        Can also return a dict or array. Note that the value returned is cached
         against the requested path, so future calls may not address nested
         paths.
 
@@ -98,7 +97,8 @@ class ConfigHandler(Handler):
 
         if len(keys) == 1:
             data_path = keys[0]
-            return self._lookup(data_path, data_path, data_path.split('-'))
+            return self._lookup(data_path, data_path, data_path.split('-'),
+                                repr(data_path))
 
         keys = tuple(keys)
         # Support ConfigHandler.fake(), which stores hyphen-joined strings.
@@ -107,11 +107,13 @@ class ConfigHandler(Handler):
         if keys not in self.cache and \
                 (joined := '-'.join(keys)) in self.fake_keys:
             return self.cache[joined]
-        return self._lookup(keys, '_'.join(keys), keys)
+        return self._lookup(keys, '_'.join(keys), keys,
+                            ', '.join(repr(k) for k in keys))
 
-    def _lookup(self, cache_key, env_name: str, path):
+    def _lookup(self, cache_key, env_name: str, path, name: str):
         """Find a value by cache, then environment, then data, caching the
-        result against cache_key. Returns None (uncached) if missing."""
+        result against cache_key. Returns None (uncached) if missing. The name
+        identifies the config key in error messages."""
 
         # If we already found the value, return it
         if cache_key in self.cache:
@@ -129,7 +131,7 @@ class ConfigHandler(Handler):
                     return None
                 data = data[key]
             if isinstance(data, str):
-                data = evaluate_string(data)
+                data = resolve_secret(data, name)
             self.cache[cache_key] = data
             return data
 
@@ -142,15 +144,43 @@ class ConfigHandler(Handler):
         return self
 
 
-def os_process(match):
-    """Run a subprocess in shell form"""
-    command_string = match.group(1).strip()
-    command = shlex.split(command_string)
-    result = subprocess.run(command, capture_output=True)
-    return result.stdout.decode().strip()
+def resolve_op(ref: str) -> str:
+    """Resolve a 1Password secret reference (op://...) using the 1Password
+    CLI. Raises ConfigHandlerError with the reason if the op CLI is missing or
+    fails."""
+    try:
+        result = subprocess.run(
+            ['op', 'read', ref], capture_output=True, text=True)
+    except FileNotFoundError as error:
+        raise ConfigHandlerError("1Password CLI (op) not found") from error
+    if result.returncode != 0:
+        raise ConfigHandlerError(
+            result.stderr.strip() or
+            f"op exited with status {result.returncode}")
+    return result.stdout.rstrip('\r\n')
 
 
-def evaluate_string(yaml: str) -> str:
-    """Evaluate shell commands in string values"""
-    text = yaml.strip()
-    return re.sub(r'\$\((.*?)\)', os_process, text)
+# Value lookups, keyed by URI scheme. A config string value that is exactly
+# '<scheme>://...' for a scheme listed here is passed to the matching resolver.
+# To add a new lookup mechanism, add a scheme and resolver here.
+RESOLVERS = {
+    'op': resolve_op,
+}
+
+
+def resolve_secret(value: str, name: str = None) -> str:
+    """Strip surrounding whitespace from the value (as config strings always
+    have been). If it is then exactly a reference using a known scheme (such
+    as op://vault/item/field), resolve it; otherwise return the stripped
+    value. On failure, raise ConfigHandlerError naming the config key (if
+    given), the reference, and the reason."""
+    text = value.strip()
+    scheme, sep, _ = text.partition('://')
+    if sep and scheme in RESOLVERS:
+        try:
+            return RESOLVERS[scheme](text)
+        except ConfigHandlerError as error:
+            where = f"config key {name} ({text})" if name else text
+            raise ConfigHandlerError(
+                f"Unable to resolve {where}: {error}") from error
+    return text
